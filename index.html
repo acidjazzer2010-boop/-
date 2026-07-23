@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Финансовый калькулятор цен и наценок 2026</title>
+    <style>
+        :root {
+            --primary: #2b5797;
+            --bg: #f4f6f9;
+            --card-bg: #ffffff;
+            --accent: #2196F3;
+            --text: #333;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg);
+            color: var(--text);
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            justify-content: center;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 900px;
+            background: var(--card-bg);
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+            padding: 30px;
+        }
+
+        h1 {
+            color: var(--primary);
+            text-align: center;
+            margin-bottom: 5px;
+        }
+
+        .subtitle {
+            text-align: center;
+            color: #666;
+            margin-bottom: 30px;
+            font-size: 0.95em;
+        }
+
+        .grid-input {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            background: #eef3f9;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 25px;
+        }
+
+        .input-group {
+            display: flex;
+            flex-direction: column;
+        }
+
+        label {
+            font-weight: 600;
+            margin-bottom: 8px;
+            font-size: 0.9em;
+            color: #444;
+        }
+
+        input {
+            padding: 10px 12px;
+            border: 1px solid #ccc;
+            border-radius: 6px;
+            font-size: 1em;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+
+        input:focus {
+            border-color: var(--primary);
+        }
+
+        .cards-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 15px;
+            margin-bottom: 25px;
+        }
+
+        .card {
+            border: 1px solid #e0e0e0;
+            border-radius: 8px;
+            padding: 15px;
+            background: #fafafa;
+            border-left: 5px solid var(--primary);
+        }
+
+        .card.highlight {
+            border-left-color: #4CAF50;
+            background: #f1f8e9;
+        }
+
+        .card-title {
+            font-size: 0.85em;
+            color: #666;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .card-value {
+            font-size: 1.6em;
+            font-weight: bold;
+            color: #111;
+            margin: 8px 0;
+        }
+
+        .card-sub {
+            font-size: 0.8em;
+            color: #777;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 15px;
+        }
+
+        th, td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+        }
+
+        th {
+            background-color: var(--primary);
+            color: white;
+        }
+
+        tr:hover {
+            background-color: #f5f5f5;
+        }
+
+        .footer-note {
+            margin-top: 20px;
+            font-size: 0.8em;
+            color: #888;
+            border-top: 1px dashed #ccc;
+            padding-top: 10px;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>💰 Прайс-Калькулятор 2026</h1>
+    <div class="subtitle">Расчет отпускных цен, наценок дистрибьюторов и сети</div>
+
+    <div class="grid-input">
+        <div class="input-group">
+            <label for="brandName">Торговая марка</label>
+            <input type="text" id="brandName" value="Новый продукт 26">
+        </div>
+        <div class="input-group">
+            <label for="basePrice">Базовая цена (руб)</label>
+            <input type="number" id="basePrice" value="590" step="10">
+        </div>
+        <div class="input-group">
+            <label for="lmbPercent">ЛМБ (%)</label>
+            <input type="number" id="lmbPercent" value="8" step="0.5">
+        </div>
+    </div>
+
+    <div class="cards-grid">
+        <div class="card">
+            <div class="card-title">ЛМБ</div>
+            <div class="card-value" id="lmbVal">0 руб</div>
+            <div class="card-sub">Надбавка ЛМБ</div>
+        </div>
+        <div class="card">
+            <div class="card-title">Вход Дистрибьютор</div>
+            <div class="card-value" id="distVal">0 руб</div>
+            <div class="card-sub">База + ЛМБ</div>
+        </div>
+        <div class="card">
+            <div class="card-title">Min Price (+25%)</div>
+            <div class="card-value" id="minVal">0 руб</div>
+            <div class="card-sub">Минимальная цена дистрибьютора</div>
+        </div>
+        <div class="card">
+            <div class="card-title">Вход Региональные Сети (+35%)</div>
+            <div class="card-value" id="regVal">0 руб</div>
+            <div class="card-sub">Входная цена для сетей</div>
+        </div>
+        <div class="card highlight">
+            <div class="card-title">Рекомендуемая цена на полке</div>
+            <div class="card-value" id="shelfVal">0 руб</div>
+            <div class="card-sub">Итоговая розничная цена</div>
+        </div>
+    </div>
+
+    <h3>Сводная таблица расчета</h3>
+    <table>
+        <thead>
+            <tr>
+                <th>Торговая марка</th>
+                <th>БАЗА</th>
+                <th>ЛМБ</th>
+                <th>Вход ДИСТРИБЬЮТОР</th>
+                <th>Min Price</th>
+                <th>Вход РЕГ. СЕТИ</th>
+                <th>На полке</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td id="tBrand">-</td>
+                <td id="tBase">-</td>
+                <td id="tLmb">-</td>
+                <td id="tDist" style="font-weight:bold;">-</td>
+                <td id="tMin">-</td>
+                <td id="tReg">-</td>
+                <td id="tShelf" style="font-weight:bold; color: #2b5797;">-</td>
+            </tr>
+        </tbody>
+    </table>
+
+    <div class="footer-note">
+        * Цены указаны самовывозом со склада. Все цены включают НДС.
+    </div>
+</div>
+
+<script>
+    function calculate() {
+        const brand = document.getElementById('brandName').value;
+        const base = parseFloat(document.getElementById('basePrice').value) || 0;
+        const lmbPct = parseFloat(document.getElementById('lmbPercent').value) || 0;
+
+        // Расчеты
+        const lmbVal = Math.round(base * (lmbPct / 100));
+        const distPrice = base + lmbVal;
+        const minPrice = Math.round(distPrice * 1.25);
+        const regPrice = Math.round(distPrice * 1.35);
+        const shelfPrice = Math.round(regPrice * 1.3837); // Соответствует ~1190 при базе 590
+
+        // Вывод на карточки
+        document.getElementById('lmbVal').innerText = lmbVal.toLocaleString('ru-RU') + ' руб';
+        document.getElementById('distVal').innerText = distPrice.toLocaleString('ru-RU') + ' руб';
+        document.getElementById('minVal').innerText = minPrice.toLocaleString('ru-RU') + ' руб';
+        document.getElementById('regVal').innerText = regPrice.toLocaleString('ru-RU') + ' руб';
+        document.getElementById('shelfVal').innerText = shelfPrice.toLocaleString('ru-RU') + ' руб';
+
+        // Вывод в таблицу
+        document.getElementById('tBrand').innerText = brand;
+        document.getElementById('tBase').innerText = base.toLocaleString('ru-RU') + ' руб';
+        document.getElementById('tLmb').innerText = lmbVal.toLocaleString('ru-RU') + ' руб (' + lmbPct + '%)';
+        document.getElementById('tDist').innerText = distPrice.toLocaleString('ru-RU') + ' руб';
+        document.getElementById('tMin').innerText = minPrice.toLocaleString('ru-RU') + ' руб';
+        document.getElementById('tReg').innerText = regPrice.toLocaleString('ru-RU') + ' руб';
+        document.getElementById('tShelf').innerText = shelfPrice.toLocaleString('ru-RU') + ' руб';
+    }
+
+    document.getElementById('brandName').addEventListener('input', calculate);
+    document.getElementById('basePrice').addEventListener('input', calculate);
+    document.getElementById('lmbPercent').addEventListener('input', calculate);
+
+    // Первичный расчет
+    calculate();
+</script>
+
+</body>
+</html>
