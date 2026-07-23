@@ -14,93 +14,104 @@ st.caption("Расчет цен для клиентов, минимальной 
 
 st.divider()
 
-# Предустановленная база товаров из вашего прайса
+# База предустановленных товаров
 PRESET_PRODUCTS = {
     "Мезенка 24": {"year": 2024, "price_disc": 531.0, "m_buy": 25.1, "m_tk": 10.0, "shelf": 1190.0},
     "Татуаж 24": {"year": 2024, "price_disc": 441.0, "m_buy": 25.1, "m_tk": 10.0, "shelf": 990.0},
     "Уикенд 24": {"year": 2024, "price_disc": 441.0, "m_buy": 25.1, "m_tk": 10.0, "shelf": 990.0},
     "Катарон 25": {"year": 2025, "price_disc": 800.0, "m_buy": 25.0, "m_tk": 5.0, "shelf": 1600.0},
     "Шарма 25": {"year": 2025, "price_disc": 650.0, "m_buy": 25.1, "m_tk": 5.0, "shelf": 1300.0},
-    "Мезенка 25": {"year": 2025, "price_disc": 650.0, "m_buy": 25.1, "m_tk": 5.0, "shelf": 1300.0},
-    "➕ Свой товар (ручной ввод)": {"year": 2026, "price_disc": 500.0, "m_buy": 25.0, "m_tk": 5.0, "shelf": 1000.0}
+    "Мезенка 25": {"year": 2025, "price_disc": 650.0, "m_buy": 25.1, "m_tk": 5.0, "shelf": 1300.0}
 }
 
 # Переключатель режимов
 app_mode = st.radio(
     "Выберите режим работы:",
-    ["🧮 Интерактивный калькулятор", "📁 Расчет из файла Excel"],
+    ["🧮 Интерактивный калькулятор (Мультивыбор)", "📁 Расчет из файла Excel"],
     horizontal=True
 )
 
 st.divider()
 
-# Боковая панель с настройками по умолчанию
-st.sidebar.header("⚙️ Настройки по умолчанию")
+# Боковая панель
+st.sidebar.header("⚙️ Глобальные наценки (по умолчанию)")
 default_markup_buy = st.sidebar.number_input("Наценка на закупку (%)", min_value=0.0, max_value=100.0, value=25.0, step=0.5)
 default_markup_tk = st.sidebar.number_input("Наценка на подвоз до ТК (%)", min_value=0.0, max_value=50.0, value=5.0, step=1.0)
 
 
-# --- 1. ИНТЕРАКТИВНЫЙ КАЛЬКУЛЯТОР ---
-if app_mode == "🧮 Интерактивный калькулятор":
+# --- 1. ИНТЕРАКТИВНЫЙ КАЛЬКУЛЯТОР С МУЛЬТИВЫБОРОМ ---
+if "Мультивыбор" in app_mode:
 
-    st.subheader("1. Выбор и параметры позиции")
+    st.subheader("1. Выберите позиции из каталога")
 
-    # Выпадающий список позиций
-    selected_product = st.selectbox(
-        "Выберите позицию из списка:",
+    # Мультивыбор с предустановленными позициями
+    selected_products = st.multiselect(
+        "Выберите одну или несколько серий:",
         options=list(PRESET_PRODUCTS.keys()),
-        index=0
+        default=list(PRESET_PRODUCTS.keys())  # По умолчанию выбраны все
     )
 
-    preset = PRESET_PRODUCTS[selected_product]
-
-    col1, col2 = st.columns(2)
-
-    with col1:
-        if selected_product == "➕ Свой товар (ручной ввод)":
-            series_name = st.text_input("Название серии / SKU", value="Новая Серия")
-        else:
-            series_name = selected_product
-
-        year_val = st.number_input("ГОД", min_value=2024, max_value=2030, value=preset["year"])
-        price_discount = st.number_input("Цена со скидкой (руб/бут)", min_value=1.0, value=preset["price_disc"], step=10.0)
-
-    with col2:
-        markup_buy = st.number_input("Наценка на закупку (%)", min_value=0.0, value=preset["m_buy"], step=0.1) / 100.0
-        markup_tk = st.number_input("Наценка на подвоз до ТК (%)", min_value=0.0, value=preset["m_tk"], step=0.5) / 100.0
-        shelf_price = st.number_input("Рекомендуемая цена на полке (руб/бут)", min_value=1.0, value=preset["shelf"], step=10.0)
-
-    # Расчеты
-    kravin_in = price_discount
-    moscow_price = round(kravin_in * (1.0 + markup_buy), 2)
-    min_price = round(moscow_price * (1.0 + markup_tk), 2)
-    shelf_markup_pct = round(((shelf_price - min_price) / min_price) * 100.0, 1) if min_price > 0 else 0.0
-
     st.divider()
-    st.subheader("2. Результаты ценовой цепочки")
 
-    m1, m2, m3, m4, m5 = st.columns(5)
-    m1.metric("Вход КРАЙВИН", f"{kravin_in:,.0f} ₽".replace(",", " "))
-    m2.metric("Цена из Москвы", f"{moscow_price:,.2f} ₽".replace(",", " "), delta=f"+{markup_buy*100:.1f}%")
-    m3.metric("Минимальная цена", f"{min_price:,.2f} ₽".replace(",", " "), delta=f"+{markup_tk*100:.1f}%")
-    m4.metric("Цена на полке", f"{shelf_price:,.0f} ₽".replace(",", " "))
-    m5.metric("% наценки от мин. цены", f"{shelf_markup_pct}%")
+    if selected_products:
+        st.subheader("2. Корректировка параметров и расчёт")
+        
+        calculated_rows = []
 
-    st.subheader("3. Сводная таблица")
-    df_single = pd.DataFrame([{
-        "Серия": series_name,
-        "ГОД": year_val,
-        "Цена со скидкой 10%": price_discount,
-        "Входная цена КРАЙВИН": kravin_in,
-        "Наценка на закупку": f"{markup_buy*100:.1f}%",
-        "Цена из Москвы для клиентов": moscow_price,
-        "Наценка на подвоз до ТК": f"{markup_tk*100:.1f}%",
-        "Минимальная цена": min_price,
-        "Рекомендуемая цена на полке": shelf_price,
-        "% наценки от мин. цены": f"{shelf_markup_pct}%"
-    }])
+        # Показываем список выбранных товаров с возможностью индивидуальной настройки
+        for prod_name in selected_products:
+            preset = PRESET_PRODUCTS[prod_name]
+            
+            with st.expander(f"⚙️ Параметры: **{prod_name}**", expanded=False):
+                col1, col2, col3, col4 = st.columns(4)
+                
+                with col1:
+                    year_v = st.number_input(f"ГОД ({prod_name})", min_value=2024, max_value=2030, value=preset["year"], key=f"y_{prod_name}")
+                with col2:
+                    price_d = st.number_input(f"Цена со скидкой (руб) ({prod_name})", min_value=1.0, value=preset["price_disc"], key=f"p_{prod_name}")
+                with col3:
+                    m_b = st.number_input(f"Наценка закупки (%) ({prod_name})", min_value=0.0, value=preset["m_buy"], key=f"mb_{prod_name}") / 100.0
+                with col4:
+                    m_t = st.number_input(f"Наценка ТК (%) ({prod_name})", min_value=0.0, value=preset["m_tk"], key=f"mt_{prod_name}") / 100.0
+                
+                shelf_p = st.number_input(f"Цена на полке (руб) ({prod_name})", min_value=1.0, value=preset["shelf"], key=f"sh_{prod_name}")
 
-    st.dataframe(df_single, hide_index=True, use_container_width=True)
+            # Формулы
+            kravin_in = price_d
+            moscow_price = round(kravin_in * (1.0 + m_b), 2)
+            min_price = round(moscow_price * (1.0 + m_t), 2)
+            shelf_markup_pct = round(((shelf_p - min_price) / min_price) * 100.0, 1) if min_price > 0 else 0.0
+
+            calculated_rows.append({
+                "Серия": prod_name,
+                "ГОД": year_v,
+                "Цена со скидкой 10%": price_d,
+                "Входная цена КРАЙВИН (руб/бут)": kravin_in,
+                "Наценка на закупку": f"{m_b*100:.1f}%",
+                "Цена из Москвы для клиентов (руб/бут)": moscow_price,
+                "Наценка на подвоз до ТК": f"{m_t*100:.1f}%",
+                "Минимальная цена (руб/бут)": min_price,
+                "Рекомендуемая цена на полке (руб/бут)": shelf_p,
+                "% наценки от минимальной цены": f"{shelf_markup_pct}%"
+            })
+
+        st.subheader("3. Сводная таблица выбранных позиций")
+        df_calc = pd.DataFrame(calculated_rows)
+        st.dataframe(df_calc, use_container_width=True, hide_index=True)
+
+        # Кнопка скачивания сформированного файла
+        buffer = io.BytesIO()
+        with pd.ExcelWriter(buffer, engine='openpyxl') as writer:
+            df_calc.to_excel(writer, index=False, sheet_name='Коммерческое предложение')
+
+        st.download_button(
+            label="📥 Скачать расчет в Excel",
+            data=buffer.getvalue(),
+            file_name="Коммерческое_предложение_КРАЙВИН.xlsx",
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        )
+    else:
+        st.info("Пожалуйста, выберите хотя бы одну позицию из списка выше.")
 
 
 # --- 2. РАСЧЕТ ИЗ ФАЙЛА EXCEL ---
@@ -152,7 +163,7 @@ else:
 
             if results:
                 df_res = pd.DataFrame(results)
-                st.dataframe(df_res, use_container_width=True)
+                st.dataframe(df_res, use_container_width=True, hide_index=True)
 
                 buffer = io.BytesIO()
                 with pd.ExcelWriter(buffer, engine='openpyxl') as writer:
