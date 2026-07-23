@@ -1,6 +1,8 @@
 import streamlit as st
 import pandas as pd
 import io
+import openpyxl
+from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 
 # Настройки страницы
 st.set_page_config(
@@ -24,6 +26,44 @@ PRESET_PRODUCTS = {
     "Мезенка 25": {"year": 2025, "price_disc": 650.0, "m_buy": 25.1, "m_tk": 5.0, "shelf": 1300.0}
 }
 
+# Функция для генерации красивого Excel с границами
+def create_styled_excel(df, sheet_name="Сводный"):
+    buffer = io.BytesIO()
+    with pd.ExcelWriter(buffer, engine='openpyxl') as writer:
+        df.to_excel(writer, index=False, sheet_name=sheet_name)
+        
+        ws = writer.sheets[sheet_name]
+        
+        # Стили
+        thin_border = Border(
+            left=Side(style='thin', color='B0BEC5'),
+            right=Side(style='thin', color='B0BEC5'),
+            top=Side(style='thin', color='B0BEC5'),
+            bottom=Side(style='thin', color='B0BEC5')
+        )
+        header_fill = PatternFill(start_color='1F4E78', end_color='1F4E78', fill_type='solid')
+        header_font = Font(name='Calibri', size=11, bold=True, color='FFFFFF')
+        data_font = Font(name='Calibri', size=11)
+        
+        # Настройка ширин колонок и границ
+        for col in ws.columns:
+            max_len = max(len(str(cell.value or '')) for cell in col)
+            col_letter = openpyxl.utils.get_column_letter(col[0].column)
+            ws.column_dimensions[col_letter].width = max(max_len + 4, 12)
+
+            for cell in col:
+                cell.border = thin_border
+                cell.font = data_font
+                if cell.row == 1:
+                    cell.fill = header_fill
+                    cell.font = header_font
+                    cell.alignment = Alignment(horizontal='center', vertical='center', wrap_text=True)
+                else:
+                    cell.alignment = Alignment(horizontal='center', vertical='center')
+
+    return buffer.getvalue()
+
+
 # Переключатель режимов
 app_mode = st.radio(
     "Выберите режим работы:",
@@ -44,11 +84,10 @@ if "Мультивыбор" in app_mode:
 
     st.subheader("1. Выберите позиции из каталога")
 
-    # Мультивыбор с предустановленными позициями
     selected_products = st.multiselect(
         "Выберите одну или несколько серий:",
         options=list(PRESET_PRODUCTS.keys()),
-        default=list(PRESET_PRODUCTS.keys())  # По умолчанию выбраны все
+        default=list(PRESET_PRODUCTS.keys())
     )
 
     st.divider()
@@ -58,7 +97,6 @@ if "Мультивыбор" in app_mode:
         
         calculated_rows = []
 
-        # Показываем список выбранных товаров с возможностью индивидуальной настройки
         for prod_name in selected_products:
             preset = PRESET_PRODUCTS[prod_name]
             
@@ -99,15 +137,13 @@ if "Мультивыбор" in app_mode:
         df_calc = pd.DataFrame(calculated_rows)
         st.dataframe(df_calc, use_container_width=True, hide_index=True)
 
-        # Кнопка скачивания сформированного файла
-        buffer = io.BytesIO()
-        with pd.ExcelWriter(buffer, engine='openpyxl') as writer:
-            df_calc.to_excel(writer, index=False, sheet_name='Коммерческое предложение')
+        # Выгрузка с границами
+        excel_data = create_styled_excel(df_calc, sheet_name="Сводный")
 
         st.download_button(
-            label="📥 Скачать расчет в Excel",
-            data=buffer.getvalue(),
-            file_name="Коммерческое_предложение_КРАЙВИН.xlsx",
+            label="📥 Скачать файл «Сводный.xlsx»",
+            data=excel_data,
+            file_name="Сводный.xlsx",
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
         )
     else:
@@ -165,14 +201,13 @@ else:
                 df_res = pd.DataFrame(results)
                 st.dataframe(df_res, use_container_width=True, hide_index=True)
 
-                buffer = io.BytesIO()
-                with pd.ExcelWriter(buffer, engine='openpyxl') as writer:
-                    df_res.to_excel(writer, index=False, sheet_name='Прайс 2026')
+                # Выгрузка с границами
+                excel_data_file = create_styled_excel(df_res, sheet_name="Сводный")
 
                 st.download_button(
-                    label="📥 Скачать пересчитанный Прайс в Excel",
-                    data=buffer.getvalue(),
-                    file_name="Прайс_КРАЙВИН_2026.xlsx",
+                    label="📥 Скачать файл «Сводный.xlsx»",
+                    data=excel_data_file,
+                    file_name="Сводный.xlsx",
                     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
                 )
         except Exception as e:
