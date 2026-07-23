@@ -10,7 +10,7 @@ st.set_page_config(
 )
 
 st.title("🍷 Прайс-Калькулятор КРАЙВИН 2026")
-st.caption("Расчет цен для клиентов, минимальной цены и цены на полке (без ЛМБ)")
+st.caption("Расчет цен для клиентов, минимальной цены и цены на полке")
 
 st.divider()
 
@@ -86,22 +86,30 @@ else:
 
     if uploaded_file is not None:
         try:
-            df_raw = pd.read_excel(uploaded_file, header=1) # Берем заголовки из 2-й строки
+            df_raw = pd.read_excel(uploaded_file, header=1) # Читаем заголовки со 2-й строки
             st.success("Файл успешно загружен!")
 
             results = []
             for idx, row in df_raw.iterrows():
-                series = row.get("Серия", row.iloc[1] if len(row) > 1 else f"Товар {idx+1}")
+                series = row.get("Серия", row.iloc[1] if len(row) > 1 else None)
+                
+                # Пропускаем пустые строки и технические подписи
                 if pd.isna(series) or str(series).startswith("Цена включает") or str(series).startswith("*"):
                     continue
 
-                year = row.get("ГОД", 2025)
+                year = int(row.get("ГОД", 2025)) if not pd.isna(row.get("ГОД")) else 2025
                 price_disc = float(row.get("Цена со скидкой 10% на 2024 г.", row.iloc[3] if len(row) > 3 else 0))
                 
                 if price_disc > 0:
-                    m_buy = float(row.get("Наценка на закупку", default_markup_buy / 100.0))
-                    m_tk = float(row.get("Наценка на подвоз до ТК", default_markup_tk / 100.0))
-                    shelf = float(row.get("Рекомендуемая цена на полке", row.iloc[8] if len(row) > 8 else 0))
+                    # Читаем наценку на закупку (корректно обрабатываем и 0.25, и 25%)
+                    raw_m_buy = float(row.get("Наценка на закупку", default_markup_buy / 100.0))
+                    m_buy = raw_m_buy / 100.0 if raw_m_buy > 1.0 else raw_m_buy
+
+                    # Читаем наценку на ТК (корректно обрабатываем и 0.05, и 5%)
+                    raw_m_tk = float(row.get("Наценка на подвоз до ТК", default_markup_tk / 100.0))
+                    m_tk = raw_m_tk / 100.0 if raw_m_tk > 1.0 else raw_m_tk
+
+                    shelf = float(row.get("Рекомендуемая цена на полке", row.iloc[9] if len(row) > 9 else 0))
 
                     k_in = price_disc
                     p_moscow = round(k_in * (1.0 + m_buy), 2)
@@ -111,13 +119,13 @@ else:
                     results.append({
                         "Серия": series,
                         "ГОД": year,
-                        "Цена со скидкой 10%": price_disc,
-                        "Входная цена КРАЙВИН (руб/бут)": k_in,
-                        "Наценка на закупку": m_buy,
+                        "Цена со скидкой 10%": round(price_disc, 2),
+                        "Входная цена КРАЙВИН (руб/бут)": round(k_in, 2),
+                        "Наценка на закупку": f"{m_buy * 100:.1f}%",
                         "Цена из Москвы для клиентов (кроме ЮФО) (руб/бут)": p_moscow,
-                        "Наценка на подвоз до ТК": m_tk,
+                        "Наценка на подвоз до ТК": f"{m_tk * 100:.1f}%",
                         "Минимальная цена (руб/бут)": p_min,
-                        "Рекомендуемая цена на полке": shelf,
+                        "Рекомендуемая цена на полке": round(shelf, 2),
                         "% наценки от минимальной цены": f"{pct_shelf}%"
                     })
 
