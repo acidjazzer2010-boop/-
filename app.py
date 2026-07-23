@@ -14,6 +14,17 @@ st.caption("Расчет цен для клиентов, минимальной 
 
 st.divider()
 
+# Предустановленная база товаров из вашего прайса
+PRESET_PRODUCTS = {
+    "Мезенка 24": {"year": 2024, "price_disc": 531.0, "m_buy": 25.1, "m_tk": 10.0, "shelf": 1190.0},
+    "Татуаж 24": {"year": 2024, "price_disc": 441.0, "m_buy": 25.1, "m_tk": 10.0, "shelf": 990.0},
+    "Уикенд 24": {"year": 2024, "price_disc": 441.0, "m_buy": 25.1, "m_tk": 10.0, "shelf": 990.0},
+    "Катарон 25": {"year": 2025, "price_disc": 800.0, "m_buy": 25.0, "m_tk": 5.0, "shelf": 1600.0},
+    "Шарма 25": {"year": 2025, "price_disc": 650.0, "m_buy": 25.1, "m_tk": 5.0, "shelf": 1300.0},
+    "Мезенка 25": {"year": 2025, "price_disc": 650.0, "m_buy": 25.1, "m_tk": 5.0, "shelf": 1300.0},
+    "➕ Свой товар (ручной ввод)": {"year": 2026, "price_disc": 500.0, "m_buy": 25.0, "m_tk": 5.0, "shelf": 1000.0}
+}
+
 # Переключатель режимов
 app_mode = st.radio(
     "Выберите режим работы:",
@@ -23,8 +34,8 @@ app_mode = st.radio(
 
 st.divider()
 
-# Боковая панель с процентами наценок по умолчанию
-st.sidebar.header("⚙️ Проценты наценок")
+# Боковая панель с настройками по умолчанию
+st.sidebar.header("⚙️ Настройки по умолчанию")
 default_markup_buy = st.sidebar.number_input("Наценка на закупку (%)", min_value=0.0, max_value=100.0, value=25.0, step=0.5)
 default_markup_tk = st.sidebar.number_input("Наценка на подвоз до ТК (%)", min_value=0.0, max_value=50.0, value=5.0, step=1.0)
 
@@ -32,19 +43,32 @@ default_markup_tk = st.sidebar.number_input("Наценка на подвоз д
 # --- 1. ИНТЕРАКТИВНЫЙ КАЛЬКУЛЯТОР ---
 if app_mode == "🧮 Интерактивный калькулятор":
 
-    st.subheader("1. Параметры позиции")
+    st.subheader("1. Выбор и параметры позиции")
+
+    # Выпадающий список позиций
+    selected_product = st.selectbox(
+        "Выберите позицию из списка:",
+        options=list(PRESET_PRODUCTS.keys()),
+        index=0
+    )
+
+    preset = PRESET_PRODUCTS[selected_product]
 
     col1, col2 = st.columns(2)
 
     with col1:
-        series_name = st.text_input("Серия / Торговая марка", value="Мезенка 25")
-        year_val = st.number_input("ГОД", min_value=2024, max_value=2030, value=2025)
-        price_discount = st.number_input("Цена со скидкой (руб/бут)", min_value=1.0, value=650.0, step=10.0)
+        if selected_product == "➕ Свой товар (ручной ввод)":
+            series_name = st.text_input("Название серии / SKU", value="Новая Серия")
+        else:
+            series_name = selected_product
+
+        year_val = st.number_input("ГОД", min_value=2024, max_value=2030, value=preset["year"])
+        price_discount = st.number_input("Цена со скидкой (руб/бут)", min_value=1.0, value=preset["price_disc"], step=10.0)
 
     with col2:
-        markup_buy = st.number_input("Наценка на закупку (%)", min_value=0.0, value=default_markup_buy, step=0.5) / 100.0
-        markup_tk = st.number_input("Наценка на подвоз до ТК (%)", min_value=0.0, value=default_markup_tk, step=1.0) / 100.0
-        shelf_price = st.number_input("Рекомендуемая цена на полке (руб/бут)", min_value=1.0, value=1300.0, step=10.0)
+        markup_buy = st.number_input("Наценка на закупку (%)", min_value=0.0, value=preset["m_buy"], step=0.1) / 100.0
+        markup_tk = st.number_input("Наценка на подвоз до ТК (%)", min_value=0.0, value=preset["m_tk"], step=0.5) / 100.0
+        shelf_price = st.number_input("Рекомендуемая цена на полке (руб/бут)", min_value=1.0, value=preset["shelf"], step=10.0)
 
     # Расчеты
     kravin_in = price_discount
@@ -86,14 +110,13 @@ else:
 
     if uploaded_file is not None:
         try:
-            df_raw = pd.read_excel(uploaded_file, header=1) # Читаем заголовки со 2-й строки
+            df_raw = pd.read_excel(uploaded_file, header=1)
             st.success("Файл успешно загружен!")
 
             results = []
             for idx, row in df_raw.iterrows():
                 series = row.get("Серия", row.iloc[1] if len(row) > 1 else None)
                 
-                # Пропускаем пустые строки и технические подписи
                 if pd.isna(series) or str(series).startswith("Цена включает") or str(series).startswith("*"):
                     continue
 
@@ -101,11 +124,9 @@ else:
                 price_disc = float(row.get("Цена со скидкой 10% на 2024 г.", row.iloc[3] if len(row) > 3 else 0))
                 
                 if price_disc > 0:
-                    # Читаем наценку на закупку (корректно обрабатываем и 0.25, и 25%)
                     raw_m_buy = float(row.get("Наценка на закупку", default_markup_buy / 100.0))
                     m_buy = raw_m_buy / 100.0 if raw_m_buy > 1.0 else raw_m_buy
 
-                    # Читаем наценку на ТК (корректно обрабатываем и 0.05, и 5%)
                     raw_m_tk = float(row.get("Наценка на подвоз до ТК", default_markup_tk / 100.0))
                     m_tk = raw_m_tk / 100.0 if raw_m_tk > 1.0 else raw_m_tk
 
